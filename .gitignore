@@ -8,4 +8,6 @@ filtered/*
 !.gitkeep
 
 data_batches/*/
-.gitkeep
+!.gitkeep
+
+*.zip 
