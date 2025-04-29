@@ -6,3 +6,6 @@ processed/*
 
 filtered/*
 !.gitkeep
+
+data_batches/*/
+.gitkeep
