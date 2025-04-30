@@ -24,4 +24,4 @@ async function deleteCsvFiles(dir) {
   }
 }
 
-deleteCsvFiles("./data_processed/Female_Fifties");
+deleteCsvFiles("../data_processed/Female_Fifties");
