@@ -1,10 +1,10 @@
-data/*
+data_raw/*
 !.gitkeep
 
-processed/*
+data_processed/*
 !.gitkeep
 
-filtered/*
+data_filtered/*
 !.gitkeep
 
 data_batches/*/
