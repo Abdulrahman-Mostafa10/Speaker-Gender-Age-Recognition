@@ -1,0 +1,15 @@
+data_raw/*
+!.gitkeep
+
+data/*
+
+data_processed/*
+!.gitkeep
+
+data_filtered/*
+!.gitkeep
+
+data_batches/*/
+!.gitkeep
+
+*.zip 

@@ -1,0 +1,11 @@
+librosa
+numpy
+pandas
+noisereduce
+SoundFile
+tqdm
+pydub
+joblib
+argparse
+
+
