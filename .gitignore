@@ -1,6 +1,9 @@
 data_raw/*
 !.gitkeep
 
+data/*
+!.gitkeep
+
 data_processed/*
 !.gitkeep
 
