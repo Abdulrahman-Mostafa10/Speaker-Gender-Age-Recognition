@@ -1,5 +1,10 @@
 FROM python:3.10-slim
 
+# Install ffmpeg (which includes ffprobe)
+RUN apt-get update && \
+    apt-get install -y ffmpeg && \
+    rm -rf /var/lib/apt/lists/*  # Clean up to reduce image size
+
 WORKDIR /app
 
 # Copy requirements first for better layer caching
