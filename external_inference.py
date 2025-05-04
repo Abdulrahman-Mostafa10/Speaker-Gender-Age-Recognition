@@ -1,6 +1,8 @@
 import os
 import subprocess
 import time
+import re
+
 
 # Define the hardcoded directories
 DATA_DIR = "./data"
@@ -14,6 +16,10 @@ internal_inference_path = os.path.abspath("internal_inference.py")
 # Ensure necessary directories exist
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def natural_key(string):
+    return [int(s) if s.isdigit() else s.lower() for s in re.split(r"(\d+)", string)]
 
 
 def run_internal_inference(file_path, processed_path):
@@ -51,18 +57,20 @@ def run_internal_inference(file_path, processed_path):
 
     # Write prediction
     with open(RESULTS_FILE, "a") as results_file:
-        results_file.write(f"{os.path.basename(file_path)}: {prediction}\n")
+        results_file.write(f"{prediction}\n")
 
 
 def process_files_in_data_dir():
-    for filename in os.listdir(DATA_DIR):
-        if filename.lower().endswith((".wav", ".mp3")):
-            file_path = os.path.join(DATA_DIR, filename)
-            processed_path = os.path.join(
-                PROCESSED_DIR, filename.replace(".mp3", ".wav")
-            )
+    audio_files = sorted(
+        (f for f in os.listdir(DATA_DIR) if f.lower().endswith((".wav", ".mp3"))),
+        key=natural_key,
+    )
 
-            run_internal_inference(file_path, processed_path)
+    for filename in audio_files:
+        file_path = os.path.join(DATA_DIR, filename)
+        processed_path = os.path.join(PROCESSED_DIR, filename.replace(".mp3", ".wav"))
+
+        run_internal_inference(file_path, processed_path)
 
 
 if __name__ == "__main__":

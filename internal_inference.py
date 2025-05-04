@@ -73,7 +73,7 @@ def remove_silence_from_array(y, sr, silence_thresh=-35, min_silence_len=300):
 def preprocess_audio(file_path, output_file_path):
     logging.info(f"Processing: {file_path}")
     try:
-        print(f"Current working directory: {os.getcwd()}")
+        # print(f"Current working directory: {os.getcwd()}")
 
         y, sr = load_audio(file_path)
         y = reduce_noise(y, sr)
