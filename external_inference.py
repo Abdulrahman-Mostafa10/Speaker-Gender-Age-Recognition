@@ -3,54 +3,66 @@ import subprocess
 import time
 
 # Define the hardcoded directories
-DATA_DIR = "./data"  # Path to the data directory
-TIME_FILE = "./output/time.txt"  # File to store the time taken for each inference
-RESULTS_FILE = "./output/results.txt"  # File to store the predictions
+DATA_DIR = "./data"
+PROCESSED_DIR = "./processed_data"
+OUTPUT_DIR = "./output"
+TIME_FILE = os.path.join(OUTPUT_DIR, "time.txt")
+RESULTS_FILE = os.path.join(OUTPUT_DIR, "results.txt")
+internal_inference_path = os.path.abspath("internal_inference.py")
 
 
-def run_internal_inference(file_path):
-    # Call the internal inference script for each file
+# Ensure necessary directories exist
+os.makedirs(PROCESSED_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def run_internal_inference(file_path, processed_path):
     start_time = time.time()
 
-    # Run the internal inference script and pass the file path as an argument
-    result = subprocess.run(
-        [
-            "python",
-            "internal_inference.py",
-            "--input",
-            file_path,
-            "--output",
-            "output/",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                "python",
+                "internal_inference.py",
+                "--input",
+                file_path,
+                "--output",
+                processed_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=os.path.dirname(
+                internal_inference_path
+            ),  # Raise exception if the script fails
+        )
 
-    # Calculate the time taken for inference
+        prediction = result.stdout.strip()
+
+    except subprocess.CalledProcessError as e:
+        # If an error occurs in internal_inference.py
+        prediction = f"Error with {file_path}: {e.stderr.strip()}"
+
     inference_time = time.time() - start_time
 
-    # Log the time taken to 'time.txt'
+    # Write time
     with open(TIME_FILE, "a") as time_file:
         time_file.write(f"{inference_time:.3f}\n")
 
-    # Capture the prediction or error from the stdout of the subprocess
-    prediction = result.stdout.strip()
-
-    # If the internal script has an error, capture it
-    if "Error:" in prediction:
-        prediction = f"Error with {file_path}: {prediction}"
-
-    # Log the result (prediction) to 'results.txt'
+    # Write prediction
     with open(RESULTS_FILE, "a") as results_file:
-        results_file.write(f"{prediction}\n")
+        results_file.write(f"{os.path.basename(file_path)}: {prediction}\n")
 
 
 def process_files_in_data_dir():
-    # Iterate over all files in the data directory
     for filename in os.listdir(DATA_DIR):
         if filename.lower().endswith((".wav", ".mp3")):
             file_path = os.path.join(DATA_DIR, filename)
-            run_internal_inference(file_path)
+            processed_path = os.path.join(
+                PROCESSED_DIR, filename.replace(".mp3", ".wav")
+            )
+
+            run_internal_inference(file_path, processed_path)
 
 
 if __name__ == "__main__":

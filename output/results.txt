@@ -1,4 +1,10 @@
-2
-3
-2
-3
+common_voice_en_12851 copy.mp3: Current working directory: D:\CMP\Neural-Networks\Speaker-Gender-Age-Recognition
+0
+common_voice_en_12851.mp3: Current working directory: D:\CMP\Neural-Networks\Speaker-Gender-Age-Recognition
+0
+common_voice_en_1454.mp3: Current working directory: D:\CMP\Neural-Networks\Speaker-Gender-Age-Recognition
+0
+common_voice_en_1470.mp3: Current working directory: D:\CMP\Neural-Networks\Speaker-Gender-Age-Recognition
+0
+Recording (2).mp3: Current working directory: D:\CMP\Neural-Networks\Speaker-Gender-Age-Recognition
+0

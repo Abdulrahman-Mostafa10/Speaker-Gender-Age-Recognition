@@ -1,3 +1,4 @@
+import os
 import argparse
 import joblib
 import librosa
@@ -5,6 +6,85 @@ import numpy as np
 import pandas as pd
 import logging
 import time
+import noisereduce as nr
+import soundfile as sf
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
+
+logging.basicConfig(level=logging.INFO)
+
+# //////////////////// Preprocessing ////////////////////
+
+
+def load_audio(file_path, target_sr=16000):
+    if file_path.lower().endswith(".mp3"):
+        audio = AudioSegment.from_file(file_path, format="mp3").set_channels(1)
+        samples = np.array(audio.get_array_of_samples()).astype(np.float32) / 32768.0
+        sr = audio.frame_rate
+        y = librosa.resample(samples, orig_sr=sr, target_sr=target_sr)
+        return y, target_sr
+    else:
+        y, sr = librosa.load(file_path, sr=target_sr)
+        return y, sr
+
+
+def normalize_volume(samples):
+    return librosa.util.normalize(samples)
+
+
+def reduce_noise(samples, sr):
+    return nr.reduce_noise(y=samples, sr=sr)
+
+
+def bandpass_filter(samples, sr, low=80, high=8000):
+    fft = librosa.stft(samples)
+    freqs = librosa.fft_frequencies(sr=sr)
+    mask = (freqs >= low) & (freqs <= high)
+    fft[~mask, :] = 0
+    return librosa.istft(fft)
+
+
+def remove_silence_from_array(y, sr, silence_thresh=-35, min_silence_len=300):
+    temp_path = f"temp_for_silence_{os.getpid()}.wav"
+    sf.write(temp_path, y, sr)
+
+    sound = AudioSegment.from_wav(temp_path)
+    chunks = split_on_silence(
+        sound,
+        min_silence_len=min_silence_len,
+        silence_thresh=silence_thresh,
+        keep_silence=100,
+    )
+
+    os.remove(temp_path)
+
+    if not chunks:
+        logging.warning("No speech detected")
+        return y
+
+    combined = AudioSegment.empty()
+    for chunk in chunks:
+        combined += chunk
+
+    samples = np.array(combined.get_array_of_samples()).astype(np.float32) / 32768.0
+    return samples
+
+
+def preprocess_audio(file_path, output_file_path):
+    logging.info(f"Processing: {file_path}")
+    try:
+        print(f"Current working directory: {os.getcwd()}")
+
+        y, sr = load_audio(file_path)
+        y = reduce_noise(y, sr)
+        y = normalize_volume(y)
+        y = bandpass_filter(y, sr)
+        y = remove_silence_from_array(y, sr)
+        sf.write(output_file_path, y, sr)
+        logging.info(f"Saved preprocessed audio to: {output_file_path}")
+    except Exception as e:
+        logging.error(f"Error processing {file_path}: {e}")
+        raise
 
 
 # //////////////////// Feature Extraction ////////////////////
@@ -15,13 +95,12 @@ class FeatureExtractor:
         self.hop_length = hop_length
 
     def extract_features(self, audio):
-        features = {}
-
-        features["pitch"] = np.mean(self.extract_pitch(audio))
-        features["chroma"] = self.extract_chroma(audio)
-        features["mfcc"] = self.extract_mfcc(audio)
-        features["zcr"] = np.mean(self.extract_zcr(audio))
-
+        features = {
+            "pitch": np.mean(self.extract_pitch(audio)),
+            "chroma": self.extract_chroma(audio),
+            "mfcc": self.extract_mfcc(audio),
+            "zcr": np.mean(self.extract_zcr(audio)),
+        }
         return features
 
     def extract_zcr(self, audio):
@@ -54,60 +133,61 @@ class FeatureExtractor:
 
 def extract_features_to_df(file_path):
     try:
-        start_time = time.time()
         audio, sr = librosa.load(file_path, sr=None, mono=True, duration=5.0)
 
-        if len(audio) < sr:  # Skip if audio is shorter than 1 second
+        if len(audio) < sr:
             logging.warning(
-                f"Skipping {file_path}: Audio too short ({len(audio)/sr:.2f} seconds)"
+                f"Skipping {file_path}: Audio too short ({len(audio)/sr:.2f}s)"
             )
             return None
 
         extractor = FeatureExtractor(sr=sr)
         features = extractor.extract_features(audio)
 
-        flattened_features = {}
+        flat = {}
         for key, val in features.items():
-            if isinstance(val, np.ndarray) and val.size > 1:
+            if isinstance(val, np.ndarray):
                 for i, v in enumerate(val):
-                    flattened_features[f"{key}_{i}"] = v
+                    flat[f"{key}_{i}"] = v
             else:
-                flattened_features[key] = val
+                flat[key] = val
 
-        return pd.DataFrame([flattened_features])
-
+        return pd.DataFrame([flat])
     except Exception as e:
         logging.error(f"Failed to process {file_path}: {e}")
         return None
 
 
-def main(input_file, output_dir):
+def main(input_path, output_path):
     try:
         model = joblib.load("./model/svm_model.pkl")
         scaler = joblib.load("./model/scaler.pkl")
 
-        # Extract features
-        features_df = extract_features_to_df(input_file)
+        # Ensure output_path is a file (not just a directory)
+        if os.path.isdir(output_path):
+            base_name = os.path.basename(input_path)
+            output_path = os.path.join(output_path, base_name)
+
+        preprocess_audio(input_path, output_path)
+        features_df = extract_features_to_df(output_path)
 
         if features_df is None:
-            raise ValueError("Failed to extract features from the audio.")
+            raise ValueError("Feature extraction failed.")
 
-        # Scale the features
-        scaled_features = scaler.transform(features_df)
-
-        # Make the prediction
-        prediction = model.predict(scaled_features)
-
-        print(prediction[0])  # Assuming model returns a single value
+        scaled = scaler.transform(features_df)
+        prediction = model.predict(scaled)
+        print(prediction[0])
 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error: {e}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Audio Inference Script")
     parser.add_argument("--input", required=True, help="Path to the input audio file")
-    parser.add_argument("--output", required=True, help="Path to the output directory")
+    parser.add_argument(
+        "--output", required=True, help="Path to save the processed audio"
+    )
     args = parser.parse_args()
 
     main(args.input, args.output)
